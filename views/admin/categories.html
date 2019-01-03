@@ -1,0 +1,321 @@
+
+
+{{extend './layout/layout.html'}}
+
+{{block 'head'}} {{/block}}
+ 
+{{block 'body'}}
+
+<div class="container-fluid">
+    <div class="page-title">
+      <h1>分类目录</h1>
+    </div>
+    <!-- 有错误信息时展示 -->
+    <!-- <div class="alert alert-danger">
+      <strong>错误！</strong>发生XXX错误
+    </div> -->
+    <div class="row">
+      <div class="col-md-4">
+        <form id="add_from">
+          <h2>添加新分类目录</h2>
+          <div class="form-group">
+            <label for="name">名称</label>
+            <input id="name" class="form-control" name="name" type="text" placeholder="分类名称">
+          </div>
+          <div class="form-group">
+            <label for="slug">别名</label>
+            <input id="slug" class="form-control" name="slug" type="text" placeholder="slug">
+            <p class="help-block">https://example.com/category/<strong>slug</strong></p>
+          </div>
+          <div class="form-group">
+            <button class="btn btn-primary" type="submit">添加</button>
+          </div>
+        </form>
+      </div>
+      <div class="col-md-8">
+        <div class="page-action">
+          <!-- show when multiple checked -->
+          <a class="btn btn-danger btn-sm" href="javascript:;" style="display: none">批量删除</a>
+        </div>
+        <table class="table table-striped table-bordered table-hover">
+          <thead>
+            <tr>
+              <th class="text-center" width="40"><input type="checkbox"></th>
+              <th>名称</th>
+              <th>Slug</th>
+              <th class="text-center" width="100">操作</th>
+            </tr>
+          </thead>
+          <tbody id="list_conntent"></tbody>
+        </table>
+      </div>
+    </div>  
+  </div>
+
+
+<!-- 编辑模态框不写js方式 -->
+  <!-- <button 
+  type="button" 
+  class="btn btn-primary" 
+  data-toggle="modal" 
+  data-target="#exampleModal" 
+  data-whatever="@mdo">Open modal for @mdo</button> -->
+<!-- /编辑模态框 -->
+
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="exampleModalLabel">New message</h4>
+      </div>
+      <div class="modal-body">
+        <form id="edit_from">
+          
+        </form>
+      </div>
+      <div class="modal-footer" id="alter">
+        <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+        <button id="submit_edit" type="button" class="btn btn-primary" >确认</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{/block}}
+
+{{block 'script'}} 
+
+<!-- 添加模板 -->
+<script type="text/html" id="edit_from_template">
+<input type="hidden" name="cate_id" value="{% cate.cate_id %}" readonly>
+  <div class="form-group">
+    <label for="recipient-name" class="control-label">分类名称:</label>
+    <input type="text" class="form-control" id="recipient-name"  value="{% cate.cate_name %}" name='cate_name' >
+  </div>
+  <div class="form-group">
+    <label for="message-text" class="control-label">分类别名:</label>
+    <input type="text" class="form-control" id="recipient-name"  value="{% cate.cate_slug %}" name='cate_slug'  >
+  </div>
+
+</script>
+<!-- /添加模板 -->
+
+ <!-- 列表模板 -->
+<script type="text/html" id="list_template">
+ 
+  {%each listData%}
+  <tr>
+      <td class="text-center"><input type="checkbox"></td>
+      <td>{% $value.cate_name %}</td>
+      <td>{% $value.cate_slug%}</td>
+      <td class="text-center">
+        <a href="javascript:;" name = "edit"  data-id = "{% $value.cate_id %}" class="btn btn-info btn-xs">编辑</a>
+        <a href="javascript:;" name = "delete"  data-id = "{% $value.cate_id %}" class="btn btn-danger btn-xs">删除</a>
+      </td>
+    </tr>
+      {%/each %}
+
+</script>
+ <!-- /列表模板 -->
+
+
+<script>
+getList();
+// 删除按钮
+$('#list_conntent').on('click', 'a[name=delete]' , headDelete)
+// 编辑模态框
+$('#list_conntent').on('click', 'a[name=edit]' , headEdit)
+
+function headEdit(){
+
+  $('#editModal').modal({
+    show:true
+  })
+ var id = $(this).data('id')
+  $.ajax({
+    url: '/api/categories/query',
+    modal: 'GET',
+    data: {
+     id: id
+    },
+    dataType:'json',
+    success: function(resData){
+     if(resData.success){
+       var htmlSrc = template('edit_from_template' ,{
+         cate: resData.data
+       })
+       $('#edit_from').html(htmlSrc)
+     }
+    },
+    error:function(error){
+      console.log(error)
+    }
+  })
+}
+
+// 删除方法
+function headDelete(){
+  if(!window.confirm('确定删除?')){
+    return
+  }
+  var id = $(this).data('id')
+  $.ajax({
+    url:'/api/categories/delete',
+    method: 'GET',
+    data: {
+      id : id
+    },
+    dataType: 'json',
+    success: function(resData){
+     if(resData.success){
+      getList()
+     }
+    },
+    error:function(error){
+      console.log(error)
+    } 
+  })
+  return false
+}
+
+// 添加元素
+// 提交按钮添加元素
+  $('#add_from').on('submit', haedAdd)
+  
+  function haedAdd() {
+    var formData = $('#add_from').serialize()
+   
+    $.ajax({
+      url: '/api/categories/add',
+      method: 'POST',
+      data: formData,
+      dataType: 'json',
+      success: function(resData){
+        if(resData.success){
+          getList();
+          $('#add_from').find('input[name]').val('')
+
+        }
+ 
+      },
+      error:function(error){
+        console.log(error)
+
+      }
+    })
+    return false
+
+  }
+// 封装渲染页面
+  function getList(){
+      $.ajax({
+      url: '/api/categories',
+      method: 'GET',
+      data: {},
+      dataType: 'json',
+      success: function(resData){
+        //得到请求相应的数据
+      if(resData.success){
+        //  2.使用模板引擎解析替换模板字符串
+        var strHtml = template('list_template',{
+          listData: resData.data
+        })
+          $("#list_conntent").html(strHtml)
+        //  3.把解析替换的结果放到列表容器中
+      }
+      },
+      error: function(error){
+        console.log(error)
+      }
+  })
+ 
+  }
+
+  // 修改操作
+ $('#submit_edit').on('click' ,function(){
+   $('#edit_from').submit()
+ })
+
+ 
+
+$('#edit_from').validate({
+  rules:{
+    cate_name:{
+      required:true
+    },
+    cate_slug:{
+      required:true
+    }
+  },
+  messages:{
+    cate_name
+  },
+  submitHandler:function(form){
+    headAlter()
+
+  }
+
+})
+
+function headAlter(){
+  var formData = $('#edit_from').serialize()
+  
+ 
+ $.ajax({
+   url:'/api/categories/alter',
+   method:'POST',
+   data:formData,
+   dataType:'json',
+   success:function(resData){
+     if(resData.success){
+       $('#editModal').modal('hide')
+       getList()
+
+     }
+   },
+   error:function(error){
+     console.log(error)
+   }
+ })
+}
+
+
+$(document).ajaxComplete(function(){
+    console.log('ajaxComplete')
+})
+$(document).ajaxError(function(event, jqxhr, settings){
+    console.log('event => ', event)
+    console.log('jqxhr => ', jqxhr)
+    console.log('settings => ', settings)
+    if (jqxhr.status >= 500) {
+      window.alert('服务端内部异常，请稍后重试')
+    }
+
+})
+$(document).ajaxSend(function(){
+    console.log('ajaxSend')
+
+})
+$(document).ajaxStart(function(){
+    console.log('ajaxStart')
+    console.log('请求开始...')
+
+})
+$(document).ajaxStop(function(){
+    console.log('ajaxStop')
+})
+$(document).ajaxSuccess(function(){
+    console.log('ajaxSuccess')
+    console.log('请求成功...')
+})
+
+
+
+</script>
+
+
+ 
+{{/block}}
+
+
